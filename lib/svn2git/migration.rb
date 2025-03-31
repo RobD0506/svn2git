@@ -238,7 +238,10 @@ module Svn2Git
         range = revision.split(":")
         range[1] = "HEAD" unless range[1]
         cmd += "-r #{range[0]}:#{range[1]} "
+      else
+        cmd += "--log-window-size=5000 "
       end
+
       unless exclude.empty?
         # Add exclude paths to the command line; some versions of git support
         # this for fetch only, later also for init.
