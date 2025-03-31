@@ -166,9 +166,19 @@ module Svn2Git
       Svn2Git::Migration.escape_quotes(str)
     end
 
-    def self.checkout_svn_branch(branch)
+    def checkout_svn_branch(branch)
       lbranch = branch.gsub("%20","_")
-      "git checkout -b \"#{lbranch}\" \"remotes/svn/#{branch}\""
+      cmd = ""
+
+      if @local && @local.include?(lbranch)
+        cmd = "git switch #{lbranch}"
+      else
+        @local ||= []
+        @local.push(lbranch)
+        cmd = "git checkout -b \"#{lbranch}\" \"remotes/svn/#{branch}\""
+      end
+
+      run_command(cmd)
     end
 
   private
@@ -403,7 +413,7 @@ module Svn2Git
         next if branch == 'trunk' || @local.include?(lbranch)
 
         if @cannot_setup_tracking_information
-          run_command(Svn2Git::Migration.checkout_svn_branch(branch))
+          checkout_svn_branch(branch)
         else
           status = run_command("git branch --track \"#{lbranch}\" \"remotes/svn/#{branch}\"", false)
 
@@ -416,7 +426,7 @@ module Svn2Git
           # use the newer --rebase otion.
           if status =~ /Cannot setup tracking information/m
             @cannot_setup_tracking_information = true
-            run_command(Svn2Git::Migration.checkout_svn_branch(branch))
+            checkout_svn_branch(branch)
           else
             unless @legacy_svn_branch_tracking_message_displayed
               warn '*' * 68
@@ -429,7 +439,7 @@ module Svn2Git
             @legacy_svn_branch_tracking_message_displayed = true
 
             # run_command("git checkout \"#{branch}\"")
-            run_command(Svn2Git::Migration.checkout_svn_branch(branch))
+            checkout_svn_branch(branch)
           end
         end
       end
