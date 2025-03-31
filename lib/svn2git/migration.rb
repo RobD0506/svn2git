@@ -379,7 +379,8 @@ module Svn2Git
 
             @legacy_svn_branch_tracking_message_displayed = true
 
-            run_command("git checkout \"#{branch}\"")
+            # run_command("git checkout \"#{branch}\"")
+            run_command(Svn2Git::Migration.checkout_svn_branch(branch))
           end
         end
       end
@@ -389,10 +390,10 @@ module Svn2Git
       trunk = @remote.find { |b| b.strip == 'trunk' }
       if trunk && ! @options[:rebase]
         run_command("git checkout svn/trunk")
-        run_command("git branch -D master")
-        run_command("git checkout -f -b master")
+        run_command("git branch -D main")
+        run_command("git checkout -f -b main")
       else
-        run_command("git checkout -f master")
+        run_command("git checkout -f main")
       end
     end
 
