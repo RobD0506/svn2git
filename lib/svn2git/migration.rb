@@ -33,6 +33,7 @@ module Svn2Git
       else
         clone!
       end
+      process_externals
       fix_branches
       fix_tags
       fix_trunk
@@ -332,7 +333,43 @@ module Svn2Git
       end
     end
 
-    def fix_branches
+    def process_externals
+      original_url = run_command("git config --get svn-remote.svn.url")  
+      original_fetch = run_command("git config --get svn-remote.svn.fetch")
+      run_command("git config --replace-all svn-remote.svn.url #{@url}")
+      run_command("git config --replace-all svn-remote.svn.fetch :refs/remotes/git-svn")
+      externals_data = run_command("git svn show-externals", true, true)
+      run_command("git config --replace-all svn-remote.svn.url #{original_url}")
+      run_command("git config --replace-all svn-remote.svn.fetch #{original_fetch}")
+      @externals_map = {}
+
+      externals_data.each_line do |line|
+        if line =~ %r{tags/([^/]+)/([^@]+)@(\d+)}
+              branch_name = $1
+              path = $2
+              revision = $3
+              path = path.gsub(/-r \d+ /, '').gsub('^', '')
+              
+              @externals_map[branch_name] ||= []
+              @externals_map[branch_name] << { path: path, revision: revision }
+        end
+      end
+
+        save_external_map
+    end
+
+  def save_external_map
+    File.open("ExternalMapping.txt", "w") do |file|
+      @externals_map.each do |branch_name, externals|
+        file.write("Branch: #{branch_name}\n")
+        externals.each do |external|
+            file.write("  Path: #{external[:path]}, Revision: #{external[:revision]}\n")
+        end
+      end
+    end
+  end
+
+  def fix_branches
       svn_branches = @remote - @tags
       svn_branches.delete_if { |b| b.strip !~ %r{^svn\/} }
 
