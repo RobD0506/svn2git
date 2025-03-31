@@ -161,7 +161,8 @@ module Svn2Git
     end
 
     def self.checkout_svn_branch(branch)
-      "git checkout -b \"#{branch}\" \"remotes/svn/#{branch}\""
+      lbranch = branch.gsub("%20","_")
+      "git checkout -b \"#{lbranch}\" \"remotes/svn/#{branch}\""
     end
 
   private
@@ -292,20 +293,26 @@ module Svn2Git
       current['user.name']  = run_command("#{git_config_command} --get user.name", false)
       current['user.email'] = run_command("#{git_config_command} --get user.email", false)
 
+      local_tags = run_command("git tag -l --no-color").split(/\n/).collect{ |b| b.gsub(/\*/,'').strip }
+
       @tags.each do |tag|
         tag = tag.strip
-        id      = tag.gsub(%r{^svn\/tags\/}, '').strip
-        subject = run_command("git log -1 --pretty=format:'%s' \"#{escape_quotes(tag)}\"").chomp("'").reverse.chomp("'").reverse
-        date    = run_command("git log -1 --pretty=format:'%ci' \"#{escape_quotes(tag)}\"").chomp("'").reverse.chomp("'").reverse
-        author  = run_command("git log -1 --pretty=format:'%an' \"#{escape_quotes(tag)}\"").chomp("'").reverse.chomp("'").reverse
-        email   = run_command("git log -1 --pretty=format:'%ae' \"#{escape_quotes(tag)}\"").chomp("'").reverse.chomp("'").reverse
-        run_command("#{git_config_command} user.name \"#{escape_quotes(author)}\"")
-        run_command("#{git_config_command} user.email \"#{escape_quotes(email)}\"")
 
-        original_git_committer_date = ENV['GIT_COMMITTER_DATE']
-        ENV['GIT_COMMITTER_DATE'] = escape_quotes(date)
-        run_command("git tag -a -m \"#{escape_quotes(subject)}\" \"#{escape_quotes(id)}\" \"#{escape_quotes(tag)}\"")
-        ENV['GIT_COMMITTER_DATE'] = original_git_committer_date
+        if !local_tags.include?(tag)
+          id      = tag.gsub(%r{^svn\/tags\/}, '').strip
+          id      = id.gsub("%20", "_")
+          subject = run_command("git log -1 --pretty=format:'%s' \"#{escape_quotes(tag)}\"").chomp("'").reverse.chomp("'").reverse
+          date    = run_command("git log -1 --pretty=format:'%ci' \"#{escape_quotes(tag)}\"").chomp("'").reverse.chomp("'").reverse
+          author  = run_command("git log -1 --pretty=format:'%an' \"#{escape_quotes(tag)}\"").chomp("'").reverse.chomp("'").reverse
+          email   = run_command("git log -1 --pretty=format:'%ae' \"#{escape_quotes(tag)}\"").chomp("'").reverse.chomp("'").reverse
+          run_command("#{git_config_command} user.name \"#{escape_quotes(author)}\"")
+          run_command("#{git_config_command} user.email \"#{escape_quotes(email)}\"")
+
+          original_git_committer_date = ENV['GIT_COMMITTER_DATE']
+          ENV['GIT_COMMITTER_DATE'] = escape_quotes(date)
+          run_command("git tag -a -m \"#{escape_quotes(subject)}\" \"#{escape_quotes(id)}\" \"#{escape_quotes(tag)}\"")
+          ENV['GIT_COMMITTER_DATE'] = original_git_committer_date
+        end
 
         run_command("git branch -d -r \"#{escape_quotes(tag)}\"")
       end
@@ -319,7 +326,7 @@ module Svn2Git
           if value.strip != ''
             run_command("#{git_config_command} #{name} \"#{value.strip}\"")
           else
-            run_command("#{git_config_command} --unset #{name}")
+            run_command("#{git_config_command} --unset #{name}", false)
           end
         end
       end
@@ -335,20 +342,21 @@ module Svn2Git
 
       svn_branches.each do |branch|
         branch = branch.gsub(/^svn\//,'').strip
+        lbranch = branch.gsub("%20","_")
+
         if @options[:rebase] && (@local.include?(branch) || branch == 'trunk')
-           lbranch = branch
-           lbranch = 'master' if branch == 'trunk'
+           lbranch = 'main' if branch == 'trunk'
            run_command("git checkout -f \"#{lbranch}\"")
            run_command("git rebase \"remotes/svn/#{branch}\"")
            next
         end
 
-        next if branch == 'trunk' || @local.include?(branch)
+        next if branch == 'trunk' || @local.include?(lbranch)
 
         if @cannot_setup_tracking_information
           run_command(Svn2Git::Migration.checkout_svn_branch(branch))
         else
-          status = run_command("git branch --track \"#{branch}\" \"remotes/svn/#{branch}\"", false)
+          status = run_command("git branch --track \"#{lbranch}\" \"remotes/svn/#{branch}\"", false)
 
           # As of git 1.8.3.2, tracking information cannot be set up for remote SVN branches:
           # http://git.661346.n2.nabble.com/git-svn-Use-prefix-by-default-td7594288.html#a7597159
