@@ -55,7 +55,7 @@ module Svn2Git
       options[:username] = nil
       options[:password] = nil
       options[:rebasebranch] = false
-      options[:notags] = false
+      options[:tagasbranch] = false
 
       if File.exist?(File.expand_path(DEFAULT_AUTHORS_FILE))
         options[:authors] = DEFAULT_AUTHORS_FILE
@@ -140,8 +140,8 @@ module Svn2Git
           options[:rebasebranch] = rebasebranch
         end
 
-        opts.on('--notags', 'Leave tags as branches.') do
-          options[:notags] = true
+        opts.on('--tagasbranch', 'Leave tags as branches.') do
+          options[:tagasbranch] = true
         end
 
         opts.separator ""
@@ -278,7 +278,7 @@ module Svn2Git
       # Tags are remote branches that start with "tags/".
       @tags = @remote.find_all { |b| b.strip =~ %r{^svn\/tags\/} }
 
-      if @options[:notags]
+      if @options[:tagasbranch]
         @remote.concat(@tags)
         @tags.clear
       end
