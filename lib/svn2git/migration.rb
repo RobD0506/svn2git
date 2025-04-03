@@ -358,7 +358,10 @@ module Svn2Git
 
     def process_externals
       original_url = run_command("git config --get svn-remote.svn.url")  
+      original_url = original_url.gsub(" ", "%20")
       original_fetch = run_command("git config --get svn-remote.svn.fetch")
+      original_fetch = original_fetch.gsub(" ", "%20")
+
       run_command("git config --replace-all svn-remote.svn.url #{@url}")
       run_command("git config --replace-all svn-remote.svn.fetch :refs/remotes/git-svn")
       externals_data = run_command("git svn show-externals", true, true)
